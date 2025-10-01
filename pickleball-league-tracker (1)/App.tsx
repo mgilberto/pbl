@@ -4,17 +4,41 @@ import { Dashboard } from './components/Dashboard';
 import { PlayerProfile } from './components/PlayerProfile';
 import { AddScoreModal } from './components/AddScoreModal';
 import { LeagueSetup } from './components/LeagueSetup';
-import { rawMatches, initialPlayers } from './data/mockData';
+import { DatabaseService } from './lib/database.service';
 import type { Match, TeamStats, PlayerStats } from './types';
 
 const App: React.FC = () => {
-  const [matches, setMatches] = useState<Match[]>(rawMatches);
-  const [players, setPlayers] = useState<string[]>(initialPlayers);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [players, setPlayers] = useState<string[]>([]);
   const [view, setView] = useState<'dashboard' | 'setup'>('dashboard');
   const [stats, setStats] = useState<TeamStats[]>([]);
   const [playerStats, setPlayerStats] = useState<Map<string, PlayerStats>>(new Map());
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isAddScoreModalOpen, setAddScoreModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [matchesData, playersData] = await Promise.all([
+        DatabaseService.getMatchesWithPlayerNames(),
+        DatabaseService.getAllPlayers(),
+      ]);
+      setMatches(matchesData);
+      setPlayers(playersData.map(p => p.name));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+      console.error('Error loading data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const processedMatches = useMemo<Match[]>(() => {
     return matches
@@ -151,24 +175,44 @@ const App: React.FC = () => {
     setSelectedPlayer(null);
   };
   
-  const handleAddMatch = (newMatch: Omit<Match, 'game' | 'date'> & { game: number | string }) => {
+  const handleAddMatch = async (newMatch: Omit<Match, 'game' | 'date'> & { game: number | string }) => {
     const gameNumber = typeof newMatch.game === 'string' ? parseInt(newMatch.game, 10) : newMatch.game;
     if (isNaN(gameNumber)) return;
 
-    const matchWithDate: Match = {
-        ...newMatch,
-        game: gameNumber,
-        date: new Date().toISOString().split('T')[0], // Add current date
-    };
+    try {
+      setError(null);
+      const [teamAPlayer1, teamAPlayer2] = newMatch.teamA.split(' & ');
+      const [teamBPlayer1, teamBPlayer2] = newMatch.teamB.split(' & ');
 
-    setMatches(prevMatches => [...prevMatches, matchWithDate]);
-    setAddScoreModalOpen(false);
+      await DatabaseService.createMatch({
+        gameNumber,
+        matchDate: new Date().toISOString().split('T')[0],
+        teamAPlayer1: teamAPlayer1.trim(),
+        teamAPlayer2: teamAPlayer2.trim(),
+        teamBPlayer1: teamBPlayer1.trim(),
+        teamBPlayer2: teamBPlayer2.trim(),
+        teamAScore: newMatch.scoreA,
+        teamBScore: newMatch.scoreB,
+      });
+
+      await loadData();
+      setAddScoreModalOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add match');
+      console.error('Error adding match:', err);
+    }
   };
 
-  const handleLeagueSetup = (newPlayers: string[]) => {
-    setPlayers(newPlayers);
-    setMatches([]); // Reset matches for the new league
-    setView('dashboard');
+  const handleLeagueSetup = async (newPlayers: string[]) => {
+    try {
+      setError(null);
+      await Promise.all(newPlayers.map(name => DatabaseService.getOrCreatePlayer(name)));
+      await loadData();
+      setView('dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to setup league');
+      console.error('Error setting up league:', err);
+    }
   };
 
   const selectedPlayerData = useMemo(() => {
@@ -191,7 +235,25 @@ const App: React.FC = () => {
         showAddMatch={view === 'dashboard'}
       />
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        {view === 'dashboard' ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center min-h-[400px]">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-lime-500 mb-4"></div>
+              <p className="text-slate-400">Loading league data...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-900/20 border border-red-500 rounded-lg p-6 text-center">
+            <p className="text-red-400 font-semibold mb-2">Error loading data</p>
+            <p className="text-slate-300 mb-4">{error}</p>
+            <button
+              onClick={loadData}
+              className="bg-lime-500 text-slate-900 font-bold py-2 px-4 rounded-lg hover:bg-lime-400 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : view === 'dashboard' ? (
             <Dashboard stats={stats} matches={processedMatches} onSelectPlayer={handlePlayerSelect} />
         ) : (
             <LeagueSetup onSetup={handleLeagueSetup} onCancel={() => setView('dashboard')} currentPlayers={players} />
