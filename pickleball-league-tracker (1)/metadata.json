@@ -1,0 +1,5 @@
+{
+  "name": "Pickleball League Tracker",
+  "description": "A web application to track match results, view leaderboards, and analyze player statistics for a pickleball league. It provides a comprehensive dashboard for both players and organizers.",
+  "requestFramePermissions": []
+}
