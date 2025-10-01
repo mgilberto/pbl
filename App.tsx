@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { PlayerProfile } from './components/PlayerProfile';
 import { AddScoreModal } from './components/AddScoreModal';
+import { BulkUploadModal, type ParsedMatch } from './components/BulkUploadModal';
 import { LeagueSetup } from './components/LeagueSetup';
 import { DatabaseService } from './lib/database.service';
 import type { Match, TeamStats, PlayerStats } from './types';
@@ -15,6 +16,7 @@ const App: React.FC = () => {
   const [playerStats, setPlayerStats] = useState<Map<string, PlayerStats>>(new Map());
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isAddScoreModalOpen, setAddScoreModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setBulkUploadModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -203,6 +205,24 @@ const App: React.FC = () => {
     }
   };
 
+  const handleBulkUpload = async (matches: ParsedMatch[]) => {
+    try {
+      setError(null);
+      setBulkUploadModalOpen(false);
+      setIsLoading(true);
+
+      for (const match of matches) {
+        await DatabaseService.createMatch(match);
+      }
+
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload matches');
+      console.error('Error uploading matches:', err);
+      setIsLoading(false);
+    }
+  };
+
   const handleLeagueSetup = async (newPlayers: string[]) => {
     try {
       setError(null);
@@ -229,8 +249,9 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-gray-200 font-sans">
-      <Header 
+      <Header
         onAddMatch={() => setAddScoreModalOpen(true)}
+        onUpload={() => setBulkUploadModalOpen(true)}
         onNavigate={setView}
         showAddMatch={view === 'dashboard'}
       />
@@ -272,6 +293,13 @@ const App: React.FC = () => {
             onClose={() => setAddScoreModalOpen(false)}
             onSubmit={handleAddMatch}
             players={players}
+        />
+      )}
+      {isBulkUploadModalOpen && (
+        <BulkUploadModal
+            isOpen={isBulkUploadModalOpen}
+            onClose={() => setBulkUploadModalOpen(false)}
+            onSubmit={handleBulkUpload}
         />
       )}
     </div>

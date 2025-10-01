@@ -14,11 +14,12 @@ const GearIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 interface HeaderProps {
     onAddMatch: () => void;
+    onUpload: () => void;
     onNavigate: (view: 'dashboard' | 'setup') => void;
     showAddMatch: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onAddMatch, onNavigate, showAddMatch }) => {
+export const Header: React.FC<HeaderProps> = ({ onAddMatch, onUpload, onNavigate, showAddMatch }) => {
     return (
         <header className="bg-slate-900/70 backdrop-blur-lg sticky top-0 z-10 shadow-lg shadow-slate-950/10">
             <div className="container mx-auto flex items-center justify-between p-4">
@@ -40,12 +41,20 @@ export const Header: React.FC<HeaderProps> = ({ onAddMatch, onNavigate, showAddM
                         <span>Setup</span>
                     </button>
                     {showAddMatch && (
-                        <button 
-                            onClick={onAddMatch}
-                            className="bg-lime-500 text-slate-900 font-bold py-2 px-4 rounded-lg hover:bg-lime-400 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-lime-500"
-                        >
-                            + Match
-                        </button>
+                        <>
+                            <button
+                                onClick={onUpload}
+                                className="bg-cyan-500 text-slate-900 font-bold py-2 px-4 rounded-lg hover:bg-cyan-400 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500"
+                            >
+                                + Upload
+                            </button>
+                            <button
+                                onClick={onAddMatch}
+                                className="bg-lime-500 text-slate-900 font-bold py-2 px-4 rounded-lg hover:bg-lime-400 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-lime-500"
+                            >
+                                + Match
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
